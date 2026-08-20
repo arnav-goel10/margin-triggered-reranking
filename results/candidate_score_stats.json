@@ -1,0 +1,51 @@
+{
+  "candidate1_minus_candidate2": {
+    "overall": {
+      "count": 10570,
+      "avg": 0.5063277533136288,
+      "p25": 0.1519393608905375,
+      "median": 0.48392629328009207,
+      "p75": 0.8843570744013505
+    },
+    "gold_is_candidate1": {
+      "count": 8908,
+      "avg": 0.5678219291766292,
+      "p25": 0.23306171418516897,
+      "median": 0.6021034277036961,
+      "p75": 0.9193095227055892
+    },
+    "gold_is_candidate2": {
+      "count": 661,
+      "avg": 0.19734743144991176,
+      "p25": 0.0379063869768288,
+      "median": 0.113258957862854,
+      "p75": 0.2983548641204834
+    }
+  },
+  "candidate1_minus_candidate3": {
+    "overall": {
+      "count": 10570,
+      "avg": 0.5977284379066327,
+      "p25": 0.32836166955530643,
+      "median": 0.6273145813029259,
+      "p75": 0.9105088583019096
+    },
+    "gold_is_candidate3": {
+      "count": 3029,
+      "avg": 0.5507006711205489,
+      "p25": 0.28057952275958087,
+      "median": 0.5431019440293312,
+      "p75": 0.8487908480747137
+    }
+  },
+  "counts": {
+    "total_questions_with_c1_and_c2": 10570,
+    "questions_where_gold_is_c1": 8908,
+    "questions_where_gold_is_c2": 661,
+    "total_questions_with_c1_and_c3": 10570,
+    "questions_where_gold_is_c3": 3029,
+    "missing_qids": 0,
+    "questions_without_c2": 0,
+    "questions_without_c3": 0
+  }
+}

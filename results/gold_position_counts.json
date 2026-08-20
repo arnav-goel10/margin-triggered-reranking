@@ -1,0 +1,13 @@
+{
+  "max_k": 5,
+  "counts": {
+    "1": 8908,
+    "2": 661,
+    "3": 253,
+    "4": 150,
+    "5": 81,
+    "not_in_top_k": 517,
+    "missing_candidates": 0
+  },
+  "total_questions": 10570
+}

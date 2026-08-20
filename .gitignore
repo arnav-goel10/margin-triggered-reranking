@@ -1,0 +1,18 @@
+# Fine-tuned checkpoints (3.5GB, fetched by run_complete_workflow.py)
+models/
+*.pt
+*.safetensors
+*.zip
+
+# SQuAD, fetched by scripts/download_data.sh
+data/*.json
+
+# Regenerable outputs: top-k candidate dumps are ~11MB
+predictions/candidates/
+predictions/experimental/
+
+venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+.ipynb_checkpoints/
