@@ -67,7 +67,9 @@ def preprocess_function(examples, tokenizer):
         sample_index = sample_mapping[i]
         answer = examples["answers"][sample_index]
 
-        if answer["text"] == "" or answer["answer_start"] == 0:
+        # An answer can start at character 0 (2,240 SQuAD train answers do), so
+        # only an empty answer means "no answer".
+        if answer["text"] == "":
             start_positions.append(cls_index)
             end_positions.append(cls_index)
             continue
@@ -115,6 +117,7 @@ def main():
                         help="Max training examples (set -1 for full)")
     parser.add_argument("--max_eval", type=int, default=500,
                         help="Max eval examples (set -1 for full)")
+    parser.add_argument("--seed", type=int, default=42)
     args = parser.parse_args()
 
     root = Path(__file__).resolve().parents[1]
@@ -163,6 +166,8 @@ def main():
         save_total_limit=3,
         bf16=supports_bf16,
         fp16=use_fp16,
+        seed=args.seed,
+        report_to=[],
     )
 
     trainer = Trainer(
