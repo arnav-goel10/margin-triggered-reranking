@@ -85,7 +85,7 @@ answers it, so it can't beat a reader fine-tuned on SQuAD.
 
 ## Trained verifier experiment (queued, no results yet)
 
-`verifier/`, `scripts/verifier/` and `slurm/` implement all three points:
+`verifier/`, `scripts/verifier/` and `slurm/` implement those three points in five steps:
 
 1. SQuAD train is split by article into `reader_train` (85%), `reader_val` (5%) and
    `heldout` (10%, 10,477 questions), checked disjoint from each other and from dev
@@ -94,8 +94,10 @@ answers it, so it can't beat a reader fine-tuned on SQuAD.
    settings, so its candidates on `heldout` and dev come from questions it never saw.
 3. An ELECTRA-base cross-encoder is fine-tuned on `reader_train` to score a marked
    span against the question: the gold span against the reader's top two wrong
-   spans for the same question.
-4. Four switch rules are tuned on `heldout` with 5-fold cross-validation: verifier
+   spans for the same question. Those negatives come from questions the reader
+   was trained on, so they are easier than the ones it produces on unseen text;
+   `reader_val` measures the verifier on unseen questions.
+4. Three switch rules are tuned on `heldout` with 5-fold cross-validation: verifier
    preference alone, the margin gate plus verifier preference, and a logistic
    switch on the gap, reader probabilities and verifier logits. The best
    cross-validated rule is fixed before dev is opened.
@@ -206,7 +208,7 @@ python src/search_rerank_hyperparams.py \
   --reranker_type bi_encoder --results_csv results/hparam_search.csv
 ```
 
-Key files: `results/best_results_top2_alpha05_gap015_bienc.json` (final),
+Key files: `results/best_results_top2_alpha05_gap015_bienc.json` (the retracted alpha=0.5 run, kept for the correction above),
 `results/results_acc2_best_original.json` (baseline),
 `results/hparam_search_top2_3_5_biencoder.csv` (all 60 runs).
 
