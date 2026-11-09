@@ -1,0 +1,7 @@
+Third-party material
+
+src/evaluate-v2.0.py is the official SQuAD evaluation script from Stanford NLP
+and is included unmodified under its own terms.
+
+The SQuAD v1.1 dataset is distributed under CC BY-SA 4.0 and is not included in
+this repository; scripts/download_data.sh fetches it from the official source.

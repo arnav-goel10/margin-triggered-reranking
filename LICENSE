@@ -19,11 +19,3 @@ AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
 LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
-
----
-
-src/evaluate-v2.0.py is the official SQuAD evaluation script from Stanford NLP
-and is included unmodified under its own terms.
-
-The SQuAD v1.1 dataset is distributed under CC BY-SA 4.0 and is not included in
-this repository; scripts/download_data.sh fetches it from the official source.
