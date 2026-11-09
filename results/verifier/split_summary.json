@@ -1,0 +1,26 @@
+{
+  "salt": "margin-verifier-v1",
+  "shares": {
+    "reader_train": 0.85,
+    "reader_val": 0.05,
+    "heldout": 0.1
+  },
+  "reader_train": {
+    "articles": 367,
+    "questions": 73189,
+    "qid_sha256": "728d57ac72c93aac7fcc9ca1afb15d63d9cb86c4ff5bc59d3765d7d173d49df3"
+  },
+  "reader_val": {
+    "articles": 20,
+    "questions": 3933,
+    "qid_sha256": "1676de9cb07b366409270e83f926a50f63d15ab295345284fd6a7cf08b919c62"
+  },
+  "heldout": {
+    "articles": 55,
+    "questions": 10477,
+    "qid_sha256": "c5cf5bc856b8b6fa53e3acb2eb385488c5900e08d915ebecfc6e21a08923c1cb"
+  },
+  "dev": {
+    "questions": 10570
+  }
+}

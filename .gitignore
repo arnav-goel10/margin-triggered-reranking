@@ -16,3 +16,9 @@ __pycache__/
 *.py[cod]
 .DS_Store
 .ipynb_checkpoints/
+
+# Article-level splits of SQuAD train (SQuAD text)
+data/splits/
+.venv/
+.pytest_cache/
+.ruff_cache/
