@@ -83,6 +83,28 @@ answers it, so it can't beat a reader fine-tuned on SQuAD.
   switch rule directly as a classifier on (gap, reranker preference).
 - Tune on a held-out slice of SQuAD train and report once on dev.
 
+## Trained verifier experiment (queued, no results yet)
+
+`verifier/`, `scripts/verifier/` and `slurm/` implement all three points:
+
+1. SQuAD train is split by article into `reader_train` (85%), `reader_val` (5%) and
+   `heldout` (10%, 10,477 questions), checked disjoint from each other and from dev
+   (`results/verifier/split_summary.json`).
+2. A RoBERTa-base reader is retrained on `reader_train` with the published reader's
+   settings, so its candidates on `heldout` and dev come from questions it never saw.
+3. An ELECTRA-base cross-encoder is fine-tuned on `reader_train` to score a marked
+   span against the question: the gold span against the reader's top two wrong
+   spans for the same question.
+4. Four switch rules are tuned on `heldout` with 5-fold cross-validation: verifier
+   preference alone, the margin gate plus verifier preference, and a logistic
+   switch on the gap, reader probabilities and verifier logits. The best
+   cross-validated rule is fixed before dev is opened.
+5. `final_eval.py --final` reads dev once, reports every rule with fixed and broken
+   counts and a paired bootstrap interval on the EM change, and refuses a second read.
+
+Run with `bash slurm/submit.sh` on the cluster. The results table above changes
+only when `results/verifier/dev_report.json` exists.
+
 ## How it works
 
 1. The fine-tuned RoBERTa reader produces the top-k candidate spans per question with scores.
@@ -97,7 +119,7 @@ answers it, so it can't beat a reader fine-tuned on SQuAD.
 
 ## Quickstart
 
-Requires Python 3.8 or newer.
+Requires Python 3.10 or newer.
 
 ```bash
 git clone https://github.com/arnav-goel10/margin-triggered-reranking.git
@@ -115,7 +137,7 @@ candidates, applies the gate, and evaluates. To train the reader yourself instea
 python src/fine_tune_roberta.py \
   --train_path data/train-v1.1.json \
   --dev_path data/dev-v1.1.json \
-  --epochs 2 --gradient_accumulation 2 --weight_decay 0.01 \
+  --epochs 2 --gradient_accumulation 2 --weight_decay 0.01 --max_train -1 \
   --output_dir models/roberta_base_d2e5_wd01_ep2_acc2
 ```
 
@@ -137,6 +159,10 @@ src/
   compare_rerank_stats.py            Which predictions changed, and how
   evaluate-v2.0.py                   Official SQuAD scorer (Stanford, unmodified)
 
+verifier/      Split, verifier inputs, switch rules, protocol guards (tested)
+scripts/verifier/  Reader candidates, verifier training and scoring, tuning, dev read
+slurm/         Cluster jobs for the verifier experiment
+tests/         pytest suite for verifier/ and the CPU pipeline stages
 results/       Metrics and the full hyperparameter search
 predictions/   Baseline predictions on dev
 data/          SQuAD v1.1 (downloaded, not committed)
@@ -192,5 +218,5 @@ Key files: `results/best_results_top2_alpha05_gap015_bienc.json` (final),
 
 ## License
 
-MIT, see [LICENSE](LICENSE). The SQuAD dataset is CC BY-SA 4.0.
-`src/evaluate-v2.0.py` is the official Stanford evaluation script, included unmodified.
+MIT, see [LICENSE](LICENSE). Third-party terms (the SQuAD dataset, CC BY-SA 4.0, and
+the unmodified official Stanford scorer in `src/evaluate-v2.0.py`) are in [NOTICE](NOTICE).
