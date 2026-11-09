@@ -1,44 +1,55 @@
 # Margin-Triggered Answer Reranking
 
 Extractive question answering on SQuAD v1.1. A fine-tuned RoBERTa-base reader picks an
-answer span, and a second-stage reranker steps in **only when the reader is unsure**.
-The trigger is the confidence margin between the reader's top two candidate spans: when
-that gap is wide the reader is left alone, and when it is narrow a bi-encoder rescores
-the two candidates against the question.
+answer span. The question this project asks is whether a second-stage reranker can fix the
+reader's mistakes if it only steps in when the reader is unsure, measured by the confidence
+gap between its top two candidates.
 
-The point of the design is restraint. A reranker that touches every question does more
-damage than good on a strong baseline, because it overturns answers the reader already
-had right. Gating on the margin keeps the intervention to **55 of 10,570 questions
-(0.5%)**, and of those 55 it fixes 14 and breaks 1.
+**Short answer: the uncertainty signal is real, but off-the-shelf rerankers can't use it.**
+When the reader is wrong and the right answer is its second choice, the gap between its top
+two scores is about 5 times smaller than when it is right. But when a MiniLM bi-encoder or
+cross-encoder overrides the reader inside that narrow band, it breaks more answers than it
+fixes, even at the tightest threshold.
 
 ## Results
 
-SQuAD v1.1 dev set, 10,570 questions.
+SQuAD v1.1 dev set, 10,570 questions. Reader baseline: **84.276 EM, 90.926 F1**.
 
-| System | EM | F1 | Predictions changed |
-| --- | --- | --- | --- |
-| RoBERTa-base reader (baseline) | 84.276 | 90.926 | n/a |
-| **+ margin-triggered reranking** | **84.399** | **91.038** | **55 (0.5%)** |
+Overriding the reader with the reranker whenever they disagree and the top-two gap is at or
+below the threshold (top 2 candidates, `alpha` below 0.5):
 
-Breakdown of the 55 changed predictions:
+| Gap threshold | Bi-encoder: fixed / broken | EM | Cross-encoder: fixed / broken | EM |
+| --- | --- | --- | --- | --- |
+| 0.05 | 107 / 136 | 84.002 | 112 / 133 | 84.078 |
+| 0.10 | 158 / 248 | 83.425 | 163 / 239 | 83.557 |
+| 0.15 | 200 / 344 | 82.914 | 204 / 322 | 83.160 |
+| 0.20 | 225 / 426 | 82.375 | 226 / 397 | 82.658 |
+| 0.25 | 240 / 511 | 81.712 | 238 / 469 | 82.091 |
 
-| Outcome | Count |
-| --- | --- |
-| Wrong then right | 14 |
-| Right then wrong | 1 |
-| Wrong then still wrong | 40 |
-| Right then still right | 0 |
+Every row lowers exact match, and the wider the band the worse it gets. Even in the
+narrowest band, where the reader is least sure, the reader is right more often than the
+reranker that disagrees with it. Full grid in `results/hparam_search_top2_3_5_*.csv`.
 
-Net gain is 13 questions, which is the whole of the +0.123 EM. The 14-to-1 ratio matters
-more than the headline number: it says the gate is firing on the right questions.
+### A correction to an earlier version of this README
 
-## Why gate on the margin
+An earlier version reported **84.399 EM (+0.123)** at `alpha=0.5`, changing 55 predictions
+(14 fixed, 1 broken). That result does not hold up, for three reasons:
 
-Two measurements from the baseline reader motivate the whole approach. Both are
+1. Reader and reranker scores are min-max normalised per question. With two candidates
+   that maps each pair to (1, 0) or (0, 1), so at `alpha=0.5` a disagreement blends to an
+   exact tie. The 55 changes come from floating-point tie-breaks. This is
+   also why every gap threshold gave identical output at `alpha=0.5`.
+2. `alpha` therefore has only two real settings. Below 0.5 the reranker wins every
+   disagreement (the table above). Above 0.5 it never changes anything.
+3. The configuration was chosen on the same dev set it was reported on.
+
+## Why the margin is still interesting
+
+Two measurements from the baseline reader hold regardless of the reranker. Both are
 reproducible with the scripts in `src/`.
 
-**Where the correct answer actually sits.** Counting how often the gold answer appears at
-each rank among the reader's top 5 candidates (`count_gold_candidate_positions.py`):
+**Where the correct answer sits.** How often the gold answer appears at each rank
+among the reader's top 5 candidates (`count_gold_candidate_positions.py`):
 
 | Rank of gold answer | Questions | Share |
 | --- | --- | --- |
@@ -49,9 +60,8 @@ each rank among the reader's top 5 candidates (`count_gold_candidate_positions.p
 | 5 | 81 | 0.8% |
 | Not in top 5 | 517 | 4.9% |
 
-Reranking the top two spans has a hard ceiling of 90.5% EM, and 6.3 points of that is
-reachable. Everything below rank 2 is out of scope by construction, which is why the
-system only ever looks at two candidates.
+Picking perfectly between the top two would reach 90.5% EM, so there are 6.3 points of
+headroom.
 
 **The margin separates those cases.** Score gap between candidate 1 and candidate 2
 (`calculate_candidate_stats.py`):
@@ -61,28 +71,29 @@ system only ever looks at two candidates.
 | Gold answer is candidate 1 | 0.602 | 0.233 |
 | Gold answer is candidate 2 | 0.113 | 0.038 |
 
-When the reader is right, it is usually right by a wide margin. When the correct answer is
-actually its second choice, the two scores sit close together. That separation is the
-signal the gate keys on.
+The reader knows when it is unsure. The failure is in the second opinion. A general-purpose
+sentence-similarity model scores how related a span is to the question, not whether it
+answers it, so it can't beat a reader fine-tuned on SQuAD.
+
+## What would fix it
+
+- A second opinion trained for this task, such as a cross-encoder fine-tuned on SQuAD
+  train to verify answers, or a second QA model.
+- No min-max normalisation with two candidates. Blend raw probabilities, or learn the
+  switch rule directly as a classifier on (gap, reranker preference).
+- Tune on a held-out slice of SQuAD train and report once on dev.
 
 ## How it works
 
 1. The fine-tuned RoBERTa reader produces the top-k candidate spans per question with scores.
 2. Compute the margin `score(c1) - score(c2)`.
-3. If the margin is **above** `min_gap`, keep candidate 1 and stop.
-4. If the margin is **at or below** `min_gap`, rescore both candidates:
-
-   ```
-   final(c) = alpha * reader_score_normalised(c) + (1 - alpha) * similarity(question, c)
-   ```
-
-   `alpha` is the weight on the reader, so `alpha=0.5` trusts both halves equally.
-   Reader scores are min-max normalised per question before blending, and `similarity`
-   is cosine similarity from `sentence-transformers/all-MiniLM-L6-v2`.
-5. Return whichever candidate has the higher blended score.
-
-Best configuration from the search: `top_k=2`, `alpha=0.5`, `min_gap=0.05`,
-bi-encoder reranker.
+3. If the margin is above `min_gap`, keep candidate 1.
+4. Otherwise rescore both candidates with
+   `final(c) = alpha * reader_norm(c) + (1 - alpha) * similarity(question, c)`,
+   where scores are min-max normalised per question and `similarity` comes from
+   `sentence-transformers/all-MiniLM-L6-v2` (bi-encoder) or
+   `cross-encoder/ms-marco-MiniLM-L-6-v2`.
+5. Return the candidate with the higher blended score.
 
 ## Quickstart
 
@@ -140,7 +151,7 @@ CAND=predictions/candidates/predictions_with_5_acc2.json
 python src/evaluate_k_candidates.py \
   --dev_file data/dev-v1.1.json --out_file $CAND --top_k 5
 
-# Margin-triggered reranking, best configuration
+# Reranking at one setting (alpha 0.5 ties, see the correction above)
 python src/rerank_squad_candidates_threshold.py \
   --dev_file data/dev-v1.1.json --nbest_file $CAND \
   --out_file predictions/predictions_reranked.json \
@@ -175,15 +186,9 @@ Key files: `results/best_results_top2_alpha05_gap015_bienc.json` (final),
 
 ## Limitations
 
-- **The gain is small.** +0.123 EM on a strong baseline. The honest reading is that the
-  gate successfully avoids harm, not that reranking transforms the system.
-- **`alpha` dominates `min_gap`.** At `alpha=0.5` every threshold from 0.05 to 0.25
-  produces identical output, so the gap stops binding once the blend weight is balanced.
-  The threshold matters at lower alpha, where the search shows it clearly.
-- **Top-2 only.** 4.9% of questions have no correct span in the top 5 at all. No amount of
-  reranking reaches those.
-- **Bi-encoder over cross-encoder.** The cross-encoder was tested (`results/experimental/`)
-  and scored worse while costing more per query.
+- Off-the-shelf rerankers only. Neither model was trained for answer verification.
+- Top 2 only. 4.9% of questions have no correct span in the top 5 at all.
+- Dev-set only. There is no separate test split, so treat every number here as exploratory.
 
 ## License
 
